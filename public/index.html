@@ -1,0 +1,62 @@
+<html>
+
+<head>
+  <title>Express</title>
+  <link rel="stylesheet" href="/stylesheets/style.css">
+  <script rel="stylesheet" src="/javascripts/main.js"></script>
+  <!-- In index.html, for example: -->
+  <script>
+    let serviceWorkerPort = null;
+    // Don't register the service worker
+    // until the page has fully loaded
+    window.addEventListener('load', async function() {
+      // Is service worker available?
+      if ('serviceWorker' in navigator) {
+        try {
+          // Register service worker
+          await navigator.serviceWorker.register('sw.js');
+
+          // It's fix service worker sleep when we is connecting
+          await fetch('sw.js');
+
+          // It's fix service worker sleep when we is having connect
+          setInterval(() => {
+            serviceWorkerPort.postMessage({type: 'message', sender: 'iframe-proxy-page', payload: 'ping'});
+          }, 5000);
+
+          // Open channel with service worker
+          serviceWorkerPort = new BroadcastChannel('sw_channel');
+          // Listen to the response from service worker
+          serviceWorkerPort.onmessage = function(event) {
+            if (event && event.data && !!~['ws_server', 'sw'].indexOf(event.data.sender) && window.top) {
+              console.log(`[IFRAME-PROXY-PAGE] message from sw: `, event.data);
+
+              window.top.postMessage({type: 'message', sender: 'iframe-proxy-page', payload: event.data.payload}, '*');
+            }
+          };
+
+        } catch (err) {
+          console.log('[IFRAME-PROXY-PAGE] service worker register was fail', err);
+        }
+      }
+    });
+
+    window.addEventListener('message', handleEvent, false);
+
+    function handleEvent(event) {
+      if (!event.data || event.data && event.data.sender === 'iframe_injected_page') {
+        console.log(`[IFRAME-PROXY-PAGE] message from IFRAME-INJECTED-PAGE`, event.payload);
+
+        // Send message to service worker
+        serviceWorkerPort.postMessage({type: 'message', sender: 'iframe-proxy-page', payload: event.data.payload});
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <h1>Websocket shared</h1>
+  <p>This is example shared websockets</p>
+</body>
+
+</html>
